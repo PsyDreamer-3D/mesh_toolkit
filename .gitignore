@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+
+# Distribution / packaging
+*.zip
+*.tar.gz
+dist/
+build/
+
+# PyCharm
+.idea/
+
+# VS Code
+.vscode/
+
+# macOS
+.DS_Store
+
+# Blender temp files
+*.blend1
+*.blend2
