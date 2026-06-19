@@ -14,6 +14,12 @@ from .shape_key_export import (
     SKX_OT_SelectNone,
     SKX_OT_ExportShapeKeys,
 )
+from .vgroup_transfer import (
+    VGT_OT_PopulateList,
+    VGT_OT_SelectAll,
+    VGT_OT_SelectNone,
+    VGT_OT_Transfer,
+)
 
 classes = (
     MESH_OT_separate_by_json,
@@ -28,6 +34,10 @@ classes = (
     SKX_OT_SelectAll,
     SKX_OT_SelectNone,
     SKX_OT_ExportShapeKeys,
+    VGT_OT_PopulateList,
+    VGT_OT_SelectAll,
+    VGT_OT_SelectNone,
+    VGT_OT_Transfer,
 )
 
 

@@ -2,18 +2,22 @@
 
 from .panels import (
     SKX_UL_ShapeKeys,
+    VGT_UL_Groups,
     MESH_PT_separate,
     COLORATTR_PT_panel,
     MATSWAP_PT_panel,
     SKX_PT_panel,
+    VGT_PT_panel,
 )
 
 classes = (
     SKX_UL_ShapeKeys,
+    VGT_UL_Groups,
     MESH_PT_separate,
     COLORATTR_PT_panel,
     MATSWAP_PT_panel,
     SKX_PT_panel,
+    VGT_PT_panel,
 )
 
 

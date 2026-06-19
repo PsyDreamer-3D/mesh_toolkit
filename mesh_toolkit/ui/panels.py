@@ -268,3 +268,101 @@ class SKX_PT_panel(Panel):
 
         if not is_valid:
             layout.label(text="Switch to Object Mode to export", icon='INFO')
+
+
+# ---------------------------------------------------------------------------
+# Vertex Group Transfer — UIList
+# ---------------------------------------------------------------------------
+
+class VGT_UL_Groups(UIList):
+    """Checkbox list of vertex groups available for transfer."""
+
+    bl_idname = "VGT_UL_Groups"
+
+    def draw_item(
+        self, context, layout, data, item, icon,
+        active_data, active_propname, index,
+    ):
+        row = layout.row(align=True)
+        row.prop(item, "include", text="")
+        row.label(text=item.name, icon='GROUP_VERTEX')
+
+
+# ---------------------------------------------------------------------------
+# Vertex Group Transfer panel
+# ---------------------------------------------------------------------------
+
+class VGT_PT_panel(Panel):
+    bl_label = "Vertex Group Transfer"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = _TAB
+    bl_options = {'DEFAULT_CLOSED'}
+
+    def draw(self, context):
+        layout = self.layout
+        settings = context.scene.vgt_settings
+        dst_obj = context.active_object
+        is_valid = (
+            dst_obj is not None
+            and dst_obj.type == 'MESH'
+            and context.mode == 'OBJECT'
+            and settings.source_object is not None
+            and settings.source_object != dst_obj
+        )
+
+        # ── Source / destination summary ──────────────────────────────────
+        box = layout.box()
+        col = box.column(align=True)
+
+        # Source row — editable PointerProperty
+        src_row = col.row(align=True)
+        src_row.label(text="Source:", icon='OBJECT_DATA')
+        src_row.prop(settings, "source_object", text="")
+
+        # Destination row — read-only, shows active object
+        dst_row = col.row(align=True)
+        dst_row.label(text="Destination:", icon='OBJECT_DATA')
+        if dst_obj is not None:
+            dst_row.label(text=dst_obj.name)
+        else:
+            dst_row.label(text="None (select a mesh)", icon='ERROR')
+
+        # Guard: source must be a mesh
+        if settings.source_object is not None and settings.source_object.type != 'MESH':
+            layout.label(text="Source must be a mesh object", icon='ERROR')
+            return
+
+        # ── Group list with refresh / select-all / select-none ────────────
+        layout.separator(factor=0.5)
+        header = layout.row()
+        header.label(text="Vertex Groups:", icon='GROUP_VERTEX')
+        btns = header.row(align=True)
+        btns.operator("vgt.populate_list", text="", icon='FILE_REFRESH')
+        btns.operator("vgt.select_all",    text="", icon='CHECKBOX_HLT')
+        btns.operator("vgt.select_none",   text="", icon='CHECKBOX_DEHLT')
+
+        layout.template_list(
+            "VGT_UL_Groups", "",
+            settings, "group_items",
+            settings, "group_items_index",
+            rows=4,
+        )
+
+        # ── Mapping options ───────────────────────────────────────────────
+        layout.separator()
+        opts = layout.column(align=True)
+        opts.prop(settings, "vert_mapping")
+        opts.prop(settings, "use_object_transform")
+
+        # ── Transfer button ───────────────────────────────────────────────
+        layout.separator()
+        transfer_row = layout.row()
+        transfer_row.scale_y = 1.4
+        transfer_row.enabled = is_valid
+        transfer_row.operator("vgt.transfer", text="Transfer Vertex Groups", icon='FORWARD')
+
+        if dst_obj is None or dst_obj.type != 'MESH' or context.mode != 'OBJECT':
+            layout.label(text="Select a mesh in Object Mode", icon='INFO')
+        elif settings.source_object is not None and settings.source_object == dst_obj:
+            layout.label(text="Source and destination must differ", icon='ERROR')
