@@ -28,6 +28,36 @@ class SKX_UL_ShapeKeys(UIList):
 
 
 # ---------------------------------------------------------------------------
+# JSON Builder — UILists
+# ---------------------------------------------------------------------------
+
+class GSB_UL_Entries(UIList):
+    """List of named output-object entries."""
+
+    bl_idname = "GSB_UL_Entries"
+
+    def draw_item(
+        self, context, layout, data, item, icon,
+        active_data, active_propname, index,
+    ):
+        layout.label(text=item.entry_name, icon='OBJECT_DATA')
+
+
+class GSB_UL_Items(UIList):
+    """Checkbox list of materials or vertex groups within an entry."""
+
+    bl_idname = "GSB_UL_Items"
+
+    def draw_item(
+        self, context, layout, data, item, icon,
+        active_data, active_propname, index,
+    ):
+        row = layout.row(align=True)
+        row.prop(item, "include", text="")
+        row.label(text=item.name)
+
+
+# ---------------------------------------------------------------------------
 # Geometry Separation panel
 # ---------------------------------------------------------------------------
 
@@ -53,6 +83,79 @@ class MESH_PT_separate(Panel):
         col.operator("mesh.separate_by_json", icon='MOD_EXPLODE')
         col.operator("mesh.check_separation_json", icon='VIEWZOOM')
 
+        if not is_valid:
+            layout.label(text="Select a mesh in Object Mode", icon='INFO')
+
+
+# ---------------------------------------------------------------------------
+# JSON Builder sub-panel (child of MESH_PT_separate)
+# ---------------------------------------------------------------------------
+
+class MESH_PT_json_builder(Panel):
+    bl_label = "JSON Builder"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = _TAB
+    bl_parent_id = "MESH_PT_separate"
+    bl_options = {'DEFAULT_CLOSED'}
+
+    def draw(self, context):
+        layout = self.layout
+        obj = context.active_object
+        is_valid = (
+            obj is not None
+            and obj.type == 'MESH'
+            and context.mode == 'OBJECT'
+        )
+        settings = context.scene.gsb_settings
+
+        # ── New-entry row ──────────────────────────────────────────────────
+        row = layout.row(align=True)
+        row.enabled = is_valid
+        row.prop(settings, "new_entry_name", text="")
+        row.operator("mesh.gsb_add_entry", text="", icon='ADD')
+
+        # ── Entry list + remove button ─────────────────────────────────────
+        row = layout.row()
+        row.template_list(
+            "GSB_UL_Entries", "",
+            settings, "entries",
+            settings, "active_index",
+            rows=3,
+        )
+        col = row.column(align=True)
+        col.operator("mesh.gsb_remove_entry", text="", icon='REMOVE')
+
+        # ── Active entry detail ────────────────────────────────────────────
+        entries = settings.entries
+        if entries and 0 <= settings.active_index < len(entries):
+            entry = entries[settings.active_index]
+
+            layout.separator(factor=0.5)
+            layout.label(text="Materials:", icon='MATERIAL')
+            layout.template_list(
+                "GSB_UL_Items", "mat",
+                entry, "mat_items",
+                entry, "mat_index",
+                rows=3,
+            )
+
+            layout.label(text="Vertex Groups:", icon='GROUP_VERTEX')
+            layout.template_list(
+                "GSB_UL_Items", "vg",
+                entry, "vg_items",
+                entry, "vg_index",
+                rows=3,
+            )
+
+        # ── Export buttons ─────────────────────────────────────────────────
+        layout.separator()
+        has_entries = len(entries) > 0
+        col = layout.column(align=True)
+        col.enabled = has_entries
+        col.operator("mesh.gsb_export_json", icon='EXPORT')
+
+        col.operator("mesh.gsb_export_vertex_json", icon='VERTEXSEL')
         if not is_valid:
             layout.label(text="Select a mesh in Object Mode", icon='INFO')
 

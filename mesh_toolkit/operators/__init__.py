@@ -1,6 +1,12 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 from .geometry_separation import MESH_OT_separate_by_json, MESH_OT_check_separation_json
+from .geometry_separation_builder import (
+    GSB_OT_add_entry,
+    GSB_OT_remove_entry,
+    GSB_OT_export_json,
+    GSB_OT_export_vertex_json,
+)
 from .color_attributes import (
     COLORATTR_OT_export,
     COLORATTR_OT_import,
@@ -24,6 +30,10 @@ from .vgroup_transfer import (
 classes = (
     MESH_OT_separate_by_json,
     MESH_OT_check_separation_json,
+    GSB_OT_add_entry,
+    GSB_OT_remove_entry,
+    GSB_OT_export_json,
+    GSB_OT_export_vertex_json,
     COLORATTR_OT_export,
     COLORATTR_OT_import,
     COLORATTR_OT_inspect,

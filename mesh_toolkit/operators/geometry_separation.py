@@ -55,70 +55,91 @@ defined by vertex groups and/or materials in a JSON config file"""
         all_separated_face_indices: set[int] = set()
 
         for group_name, group_data in groups.items():
-            vertex_group_names: list[str] = group_data.get("vertex_groups", [])
-            material_names: list[str]     = group_data.get("materials", [])
-
-            if not vertex_group_names and not material_names:
-                warnings.append(
-                    f"'{group_name}': no vertex_groups or materials defined — skipped."
-                )
-                continue
-
-            vg_indices = {
-                vg.index
-                for vg in original_obj.vertex_groups
-                if vg.name in vertex_group_names
-            }
-
-            verts_in_groups: set[int] = set()
-            for v in original_mesh.vertices:
-                for g in v.groups:
-                    if g.group in vg_indices and g.weight >= 1.0:
-                        verts_in_groups.add(v.index)
-                        break
-
-            mat_name_set = set(material_names)
-
             group_face_indices: set[int] = set()
-            for poly in original_mesh.polygons:
-                if any(vi in verts_in_groups for vi in poly.vertices):
-                    group_face_indices.add(poly.index)
-                    continue
-                mat_name = None
-                if poly.material_index < len(original_obj.material_slots):
-                    slot_mat = original_obj.material_slots[poly.material_index].material
-                    if slot_mat:
-                        mat_name = slot_mat.name
-                if mat_name is not None and any(req in mat_name for req in mat_name_set):
-                    group_face_indices.add(poly.index)
 
-            if not group_face_indices:
-                found_mats = {
-                    s.material.name
-                    for s in original_obj.material_slots
-                    if s.material
-                }
-                found_vgs = {vg.name for vg in original_obj.vertex_groups}
-                missing_mats = {
-                    req for req in mat_name_set
-                    if not any(req in m for m in found_mats)
-                }
-                missing_vgs = set(vertex_group_names) - found_vgs
-                detail_parts = []
-                if missing_mats:
-                    detail_parts.append("materials not found: " + ", ".join(sorted(missing_mats)))
-                if missing_vgs:
-                    detail_parts.append("vertex groups not found: " + ", ".join(sorted(missing_vgs)))
-                if not missing_mats and not missing_vgs:
-                    detail_parts.append(
-                        "names exist on mesh but no faces matched "
-                        "(check weight threshold or empty slots)"
+            if "vertex_indices" in group_data:
+                # Vertex-index mode: select faces whose every vertex is in the set.
+                idx_set: set[int] = set(group_data["vertex_indices"])
+                for poly in original_mesh.polygons:
+                    if all(vi in idx_set for vi in poly.vertices):
+                        group_face_indices.add(poly.index)
+
+                if not group_face_indices:
+                    mesh_vert_count = len(original_mesh.vertices)
+                    out_of_range = [i for i in idx_set if i >= mesh_vert_count]
+                    detail = (
+                        f"mesh has {mesh_vert_count} vertices; "
+                        f"{len(out_of_range)} index(es) out of range"
+                        if out_of_range
+                        else "no faces matched — indices may not form complete polygons"
                     )
-                warnings.append(
-                    f"'{group_name}': no matching geometry — "
-                    + "; ".join(detail_parts)
-                )
-                continue
+                    warnings.append(f"'{group_name}': no matching geometry — {detail}")
+                    continue
+
+            else:
+                vertex_group_names: list[str] = group_data.get("vertex_groups", [])
+                material_names: list[str]     = group_data.get("materials", [])
+
+                if not vertex_group_names and not material_names:
+                    warnings.append(
+                        f"'{group_name}': no vertex_groups, materials, or vertex_indices defined — skipped."
+                    )
+                    continue
+
+                vg_indices = {
+                    vg.index
+                    for vg in original_obj.vertex_groups
+                    if vg.name in vertex_group_names
+                }
+
+                verts_in_groups: set[int] = set()
+                for v in original_mesh.vertices:
+                    for g in v.groups:
+                        if g.group in vg_indices and g.weight >= 1.0:
+                            verts_in_groups.add(v.index)
+                            break
+
+                mat_name_set = set(material_names)
+
+                for poly in original_mesh.polygons:
+                    if any(vi in verts_in_groups for vi in poly.vertices):
+                        group_face_indices.add(poly.index)
+                        continue
+                    mat_name = None
+                    if poly.material_index < len(original_obj.material_slots):
+                        slot_mat = original_obj.material_slots[poly.material_index].material
+                        if slot_mat:
+                            mat_name = slot_mat.name
+                    if mat_name is not None and any(req in mat_name for req in mat_name_set):
+                        group_face_indices.add(poly.index)
+
+                if not group_face_indices:
+                    found_mats = {
+                        s.material.name
+                        for s in original_obj.material_slots
+                        if s.material
+                    }
+                    found_vgs = {vg.name for vg in original_obj.vertex_groups}
+                    missing_mats = {
+                        req for req in mat_name_set
+                        if not any(req in m for m in found_mats)
+                    }
+                    missing_vgs = set(vertex_group_names) - found_vgs
+                    detail_parts = []
+                    if missing_mats:
+                        detail_parts.append("materials not found: " + ", ".join(sorted(missing_mats)))
+                    if missing_vgs:
+                        detail_parts.append("vertex groups not found: " + ", ".join(sorted(missing_vgs)))
+                    if not missing_mats and not missing_vgs:
+                        detail_parts.append(
+                            "names exist on mesh but no faces matched "
+                            "(check weight threshold or empty slots)"
+                        )
+                    warnings.append(
+                        f"'{group_name}': no matching geometry — "
+                        + "; ".join(detail_parts)
+                    )
+                    continue
 
             child_vert_indices: set[int] = set()
             for fi in group_face_indices:
@@ -274,37 +295,55 @@ Results are written to a text block readable in Blender's Text Editor."""
         total_issues = 0
         lines += ["", f"  --- Per-group ({len(groups)} groups) ---"]
 
+        mesh_vert_count = len(obj.data.vertices)
+
         for group_name, group_data in groups.items():
-            vg_names:  list[str] = group_data.get("vertex_groups", [])
-            mat_names: list[str] = group_data.get("materials", [])
             lines.append(f"\n  [{group_name}]")
 
-            for vg in vg_names:
-                ok = vg in mesh_vgs
-                lines.append(f"    VG  {'OK ' if ok else 'MISS'}: {vg!r}")
-                if not ok:
-                    close = [
-                        n for n in mesh_vgs
-                        if vg.lower() in n.lower() or n.lower() in vg.lower()
-                    ]
-                    if close:
-                        lines.append(f"         ^ similar on mesh: {close}")
-                    total_issues += 1
-
-            for mat in mat_names:
-                matched = [m for m in mesh_mats if mat in m]
-                ok = bool(matched)
-                lines.append(f"    Mat {'OK ' if ok else 'MISS'}: {mat!r}")
-                if ok:
-                    lines.append(f"         ^ resolves to: {matched}")
+            if "vertex_indices" in group_data:
+                idx_list = group_data["vertex_indices"]
+                out_of_range = [i for i in idx_list if i >= mesh_vert_count]
+                lines.append(f"    Mode: vertex_indices ({len(idx_list)} indices)")
+                if out_of_range:
+                    lines.append(
+                        f"    ISSUE: {len(out_of_range)} index(es) out of range "
+                        f"(mesh has {mesh_vert_count} vertices): {out_of_range[:10]}"
+                        + (" …" if len(out_of_range) > 10 else "")
+                    )
+                    total_issues += len(out_of_range)
                 else:
-                    close = [
-                        n for n in mesh_mats
-                        if mat.lower() in n.lower() or n.lower() in mat.lower()
-                    ]
-                    if close:
-                        lines.append(f"         ^ similar on mesh: {close}")
-                    total_issues += 1
+                    lines.append(f"    OK  : all indices within range")
+            else:
+                vg_names:  list[str] = group_data.get("vertex_groups", [])
+                mat_names: list[str] = group_data.get("materials", [])
+                lines.append("    Mode: vertex_groups / materials")
+
+                for vg in vg_names:
+                    ok = vg in mesh_vgs
+                    lines.append(f"    VG  {'OK ' if ok else 'MISS'}: {vg!r}")
+                    if not ok:
+                        close = [
+                            n for n in mesh_vgs
+                            if vg.lower() in n.lower() or n.lower() in vg.lower()
+                        ]
+                        if close:
+                            lines.append(f"         ^ similar on mesh: {close}")
+                        total_issues += 1
+
+                for mat in mat_names:
+                    matched = [m for m in mesh_mats if mat in m]
+                    ok = bool(matched)
+                    lines.append(f"    Mat {'OK ' if ok else 'MISS'}: {mat!r}")
+                    if ok:
+                        lines.append(f"         ^ resolves to: {matched}")
+                    else:
+                        close = [
+                            n for n in mesh_mats
+                            if mat.lower() in n.lower() or n.lower() in mat.lower()
+                        ]
+                        if close:
+                            lines.append(f"         ^ similar on mesh: {close}")
+                        total_issues += 1
 
         lines += ["", "========================="]
 
