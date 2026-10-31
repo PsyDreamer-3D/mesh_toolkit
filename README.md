@@ -58,6 +58,8 @@ Export selected shape keys as standalone mesh objects using the direct Python da
 
 ## Installation
 
+To get updates inside Blender, add `https://github.com/PsyDreamer-3D/mesh_toolkit/releases/latest/download/index.json` as a remote repository (**Preferences → Get Extensions → Repositories → + → Add Remote Repository**) and turn on **Check for Updates on Startup**. Releases carry the `index.json` that URL points at, so each new version shows up as an update.
+
 1. In Blender go to **Edit › Preferences › Get Extensions**.
 2. Drag and drop the `mesh_toolkit` folder (or a `.zip` of it) onto the Blender window, or use **Install from Disk**.
 3. The add-on will appear under **Mesh** in the Extensions list.
